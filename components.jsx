@@ -462,17 +462,42 @@ function Achievement() {
 }
 
 /* ============ TESTIMONIALS ============ */
-function Testimonials() {
+function Testimonials({ data = BLC_DATA }) {
   const [page, setPage] = useStateH(0);
-  const total = BLC_DATA.TESTIMONIALS.length;
-  const perPage = 3;
-  const pages = Math.max(1, Math.ceil(total / perPage));
+  const [paused, setPaused] = useStateH(false);
+  const [touchStartX, setTouchStartX] = useStateH(null);
+  const testimonials = data.TESTIMONIALS || [];
+  const total = testimonials.length;
+
   useEffectH(() => {
-    const t = setInterval(() => setPage(p => (p + 1) % pages), 6000);
+    if (paused || total <= 1) return undefined;
+    const t = setInterval(() => setPage(p => (p + 1) % total), 5000);
     return () => clearInterval(t);
-  }, [pages]);
-  const visible = [];
-  for (let i = 0; i < perPage; i++) visible.push(BLC_DATA.TESTIMONIALS[(page * perPage + i) % total]);
+  }, [paused, total]);
+
+  useEffectH(() => {
+    if (page >= total) setPage(0);
+  }, [page, total]);
+
+  const next = () => {
+    if (!total) return;
+    setPage(p => (p + 1) % total);
+  };
+
+  const prev = () => {
+    if (!total) return;
+    setPage(p => (p - 1 + total) % total);
+  };
+
+  const handleTouchEnd = (event) => {
+    if (touchStartX === null) return;
+    const delta = touchStartX - event.changedTouches[0].clientX;
+    if (Math.abs(delta) > 42) {
+      if (delta > 0) next();
+      else prev();
+    }
+    setTouchStartX(null);
+  };
 
   return (
   <section id="testimonials" className="testimonials">
@@ -483,62 +508,71 @@ function Testimonials() {
         <p>Pengalaman nyata alumni BLC yang berhasil mewujudkan mimpi akademiknya.</p>
       </div>
 
-      <div className="testi-slider">
-          {visible.map((t, i) => (
-            <div className="testi-card testi-image-card" key={page + '-' + i}>
-              <img
-                src={t.image}
-                alt={t.alt}
-                className="testi-image"
-                loading="lazy"
-              />
-            </div>
-        ))}
+      <div
+        className="testi-carousel"
+        onMouseEnter={() => setPaused(true)}
+        onMouseLeave={() => setPaused(false)}
+        onTouchStart={(event) => setTouchStartX(event.touches[0].clientX)}
+        onTouchEnd={handleTouchEnd}
+      >
+        {total > 1 && (
+          <button className="testi-nav prev" onClick={prev} aria-label="Testimoni sebelumnya">
+            <i className="bi bi-chevron-left"></i>
+          </button>
+        )}
+
+        <div className="testi-viewport">
+          <div className="testi-track" style={{ transform: `translateX(-${page * 100}%)` }}>
+            {testimonials.map((t, i) => (
+              <div className="testi-slide" key={t.image + i}>
+                <div className="testi-card testi-image-card">
+                  <img
+                    src={t.image}
+                    alt={t.alt}
+                    className="testi-image"
+                    loading={i === 0 ? 'eager' : 'lazy'}
+                  />
+                </div>
+              </div>
+            ))}
+
+            {!total && (
+              <div className="testi-slide">
+                <div className="testi-card testi-empty">
+                  <p>Belum ada testimoni alumni yang ditampilkan.</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {total > 1 && (
+          <button className="testi-nav next" onClick={next} aria-label="Testimoni berikutnya">
+            <i className="bi bi-chevron-right"></i>
+          </button>
+        )}
       </div>
 
+      {total > 1 && (
       <div className="slider-dots">
-        {Array.from({ length: pages }).map((_, i) => (
+        {testimonials.map((_, i) => (
           <button
             key={i}
             className={'dot ' + (page === i ? 'active' : '')}
             onClick={() => setPage(i)}
-            aria-label={`Page ${i + 1}`}
+            aria-label={`Tampilkan testimoni ${i + 1}`}
           />
         ))}
       </div>
+      )}
     </div>
   </section>
 );
 }
 
 /* ============ GALLERY ============ */
-function Gallery() {
-  const items = [
-    {
-      label: 'Suasana Kelas Reguler',
-      image: 'assets/img/kelasreg.jfif',
-    },
-    {
-      label: 'Suasana Kelas Regular',
-      image: 'assets/img/kelas.png',
-    },
-    {
-      label: 'Suasana Kelas Reguler',
-      image: 'assets/img/bg2.jpg',
-    },
-    {
-      label: 'Diskusi Kelompok',
-      image: 'assets/img/kelas2.png',
-    },
-    {
-      label: 'kelas private',
-      image: 'assets/img/private.jpeg',
-    },
-    {
-      label: 'Workshop Persiapan PTN',
-      image: 'assets/img/workshop1.jpg',
-    },
-  ];
+function Gallery({ data = BLC_DATA }) {
+  const items = data.GALLERY_ITEMS || [];
 
   return (
     <section id="gallery">
@@ -558,6 +592,11 @@ function Gallery() {
               <div className="label">{it.label}</div>
             </div>
           ))}
+          {!items.length && (
+            <div className="gallery-item">
+              <div className="placeholder">Belum ada galeri kegiatan.</div>
+            </div>
+          )}
         </div>
       </div>
     </section>

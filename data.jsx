@@ -87,6 +87,33 @@ const TESTIMONIALS = [
   },
 ];
 
+const GALLERY_ITEMS = [
+  {
+    label: 'Suasana Kelas Reguler',
+    image: 'assets/img/kelasreg.jfif',
+  },
+  {
+    label: 'Suasana Kelas Regular',
+    image: 'assets/img/kelas.png',
+  },
+  {
+    label: 'Suasana Kelas Reguler',
+    image: 'assets/img/bg2.jpg',
+  },
+  {
+    label: 'Diskusi Kelompok',
+    image: 'assets/img/kelas2.png',
+  },
+  {
+    label: 'kelas private',
+    image: 'assets/img/private.jpeg',
+  },
+  {
+    label: 'Workshop Persiapan PTN',
+    image: 'assets/img/workshop1.jpg',
+  },
+];
+
 const FAQS = [
   { q: 'Berapa biaya bimbingan di Brilliant Learning Center?', a: 'Biaya program bervariasi tergantung jenjang (SD, SMP, SMA, Persiapan PTN) dan format yang dipilih (Reguler atau Private). Hubungi kami via WhatsApp untuk informasi paket terbaru dan promo pendaftaran.' },
   { q: 'Apakah ada kelas trial sebelum mendaftar?', a: 'Ya, kami menyediakan 1 sesi free trial untuk siswa baru agar dapat merasakan langsung suasana belajar di BLC sebelum berkomitmen mengikuti program penuh.' },
@@ -183,4 +210,4 @@ const BLOG_POSTS = [
   },
 ];
 
-window.BLC_DATA = { TEAM_MGMT, TEAM_TEACHERS, ACHIEVEMENTS, TESTIMONIALS, FAQS, BLOG_POSTS };
+window.BLC_DATA = { TEAM_MGMT, TEAM_TEACHERS, ACHIEVEMENTS, TESTIMONIALS, GALLERY_ITEMS, FAQS, BLOG_POSTS };

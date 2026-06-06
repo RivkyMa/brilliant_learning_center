@@ -57,6 +57,26 @@ create table if not exists public.articles (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.gallery_items (
+  id uuid primary key default gen_random_uuid(),
+  label text not null,
+  image_url text not null,
+  is_active boolean not null default true,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.testimonials (
+  id uuid primary key default gen_random_uuid(),
+  alt_text text not null default 'Testimoni Alumni BLC',
+  image_url text not null,
+  is_active boolean not null default true,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create or replace function public.set_updated_at()
 returns trigger
 language plpgsql
@@ -77,9 +97,21 @@ create trigger set_articles_updated_at
 before update on public.articles
 for each row execute function public.set_updated_at();
 
+drop trigger if exists set_gallery_items_updated_at on public.gallery_items;
+create trigger set_gallery_items_updated_at
+before update on public.gallery_items
+for each row execute function public.set_updated_at();
+
+drop trigger if exists set_testimonials_updated_at on public.testimonials;
+create trigger set_testimonials_updated_at
+before update on public.testimonials
+for each row execute function public.set_updated_at();
+
 alter table public.admin_users enable row level security;
 alter table public.teachers enable row level security;
 alter table public.articles enable row level security;
+alter table public.gallery_items enable row level security;
+alter table public.testimonials enable row level security;
 
 drop policy if exists "Admins can view admin users" on public.admin_users;
 create policy "Admins can view admin users"
@@ -118,11 +150,47 @@ to authenticated
 using (public.is_admin(auth.uid()))
 with check (public.is_admin(auth.uid()));
 
+drop policy if exists "Active gallery items are public" on public.gallery_items;
+create policy "Active gallery items are public"
+on public.gallery_items
+for select
+to anon, authenticated
+using (is_active = true);
+
+drop policy if exists "Admins can manage gallery items" on public.gallery_items;
+create policy "Admins can manage gallery items"
+on public.gallery_items
+for all
+to authenticated
+using (public.is_admin(auth.uid()))
+with check (public.is_admin(auth.uid()));
+
+drop policy if exists "Active testimonials are public" on public.testimonials;
+create policy "Active testimonials are public"
+on public.testimonials
+for select
+to anon, authenticated
+using (is_active = true);
+
+drop policy if exists "Admins can manage testimonials" on public.testimonials;
+create policy "Admins can manage testimonials"
+on public.testimonials
+for all
+to authenticated
+using (public.is_admin(auth.uid()))
+with check (public.is_admin(auth.uid()));
+
 create index if not exists teachers_active_sort_idx
 on public.teachers (is_active, is_management, subject, sort_order);
 
 create index if not exists articles_published_sort_idx
 on public.articles (is_published, published_at desc, sort_order);
+
+create index if not exists gallery_items_active_sort_idx
+on public.gallery_items (is_active, sort_order);
+
+create index if not exists testimonials_active_sort_idx
+on public.testimonials (is_active, sort_order);
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (

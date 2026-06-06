@@ -33,6 +33,22 @@ const EMPTY_ARTICLE = {
   sort_order: 0,
 };
 
+const EMPTY_GALLERY_ITEM = {
+  id: '',
+  label: '',
+  image_url: '',
+  is_active: true,
+  sort_order: 0,
+};
+
+const EMPTY_TESTIMONIAL = {
+  id: '',
+  alt_text: 'Testimoni Alumni BLC',
+  image_url: '',
+  is_active: true,
+  sort_order: 0,
+};
+
 function AdminApp() {
   const client = useMemoA(() => createSupabaseClient(), []);
   const [session, setSession] = useStateA(null);
@@ -158,24 +174,30 @@ function AdminShell({ client, session }) {
   const [active, setActive] = useStateA('teachers');
   const [teachers, setTeachers] = useStateA([]);
   const [articles, setArticles] = useStateA([]);
+  const [galleryItems, setGalleryItems] = useStateA([]);
+  const [testimonials, setTestimonials] = useStateA([]);
   const [loading, setLoading] = useStateA(false);
   const [notice, setNotice] = useStateA(null);
 
   const loadData = async () => {
     setLoading(true);
-    const [teacherResult, articleResult] = await Promise.all([
+    const [teacherResult, articleResult, galleryResult, testimonialResult] = await Promise.all([
       client.from('teachers').select('*').order('sort_order', { ascending: true }).order('created_at', { ascending: false }),
       client.from('articles').select('*').order('sort_order', { ascending: true }).order('published_at', { ascending: false }),
+      client.from('gallery_items').select('*').order('sort_order', { ascending: true }).order('created_at', { ascending: false }),
+      client.from('testimonials').select('*').order('sort_order', { ascending: true }).order('created_at', { ascending: false }),
     ]);
 
-    if (teacherResult.error || articleResult.error) {
+    if (teacherResult.error || articleResult.error || galleryResult.error || testimonialResult.error) {
       setNotice({
         type: 'error',
-        text: teacherResult.error?.message || articleResult.error?.message,
+        text: teacherResult.error?.message || articleResult.error?.message || galleryResult.error?.message || testimonialResult.error?.message,
       });
     } else {
       setTeachers(teacherResult.data || []);
       setArticles(articleResult.data || []);
+      setGalleryItems(galleryResult.data || []);
+      setTestimonials(testimonialResult.data || []);
     }
     setLoading(false);
   };
@@ -207,6 +229,12 @@ function AdminShell({ client, session }) {
           <button className={active === 'articles' ? 'active' : ''} onClick={() => setActive('articles')}>
             <i className="bi bi-newspaper"></i> Artikel
           </button>
+          <button className={active === 'gallery' ? 'active' : ''} onClick={() => setActive('gallery')}>
+            <i className="bi bi-images"></i> Galeri
+          </button>
+          <button className={active === 'testimonials' ? 'active' : ''} onClick={() => setActive('testimonials')}>
+            <i className="bi bi-chat-square-heart"></i> Testimoni
+          </button>
           <button className={active === 'imports' ? 'active' : ''} onClick={() => setActive('imports')}>
             <i className="bi bi-database-add"></i> Import Awal
           </button>
@@ -223,7 +251,7 @@ function AdminShell({ client, session }) {
       <main className="admin-main">
         <header className="admin-top">
           <div>
-            <h1>{active === 'teachers' ? 'Guru & Tim' : active === 'articles' ? 'Artikel' : 'Import Data Awal'}</h1>
+            <h1>{getAdminTitle(active)}</h1>
             <p>{active === 'imports' ? 'Masukkan data lama dari file lokal ke Supabase.' : 'Tambah, edit, dan atur konten website.'}</p>
           </div>
           <div className="admin-top-actions">
@@ -257,6 +285,24 @@ function AdminShell({ client, session }) {
           />
         )}
 
+        {active === 'gallery' && (
+          <GalleryManager
+            client={client}
+            galleryItems={galleryItems}
+            onChanged={loadData}
+            showNotice={showNotice}
+          />
+        )}
+
+        {active === 'testimonials' && (
+          <TestimonialManager
+            client={client}
+            testimonials={testimonials}
+            onChanged={loadData}
+            showNotice={showNotice}
+          />
+        )}
+
         {active === 'imports' && (
           <ImportPanel
             client={client}
@@ -264,11 +310,24 @@ function AdminShell({ client, session }) {
             showNotice={showNotice}
             teachersCount={teachers.length}
             articlesCount={articles.length}
+            galleryCount={galleryItems.length}
+            testimonialsCount={testimonials.length}
           />
         )}
       </main>
     </div>
   );
+}
+
+function getAdminTitle(active) {
+  const titles = {
+    teachers: 'Guru & Tim',
+    articles: 'Artikel',
+    gallery: 'Galeri Kegiatan',
+    testimonials: 'Testimoni Alumni',
+    imports: 'Import Data Awal',
+  };
+  return titles[active] || 'Admin BLC';
 }
 
 function TeacherManager({ client, teachers, onChanged, showNotice }) {
@@ -603,7 +662,285 @@ function ArticleManager({ client, articles, onChanged, showNotice }) {
   );
 }
 
-function ImportPanel({ client, onChanged, showNotice, teachersCount, articlesCount }) {
+function GalleryManager({ client, galleryItems, onChanged, showNotice }) {
+  const [form, setForm] = useStateA(EMPTY_GALLERY_ITEM);
+  const [saving, setSaving] = useStateA(false);
+  const [uploading, setUploading] = useStateA(false);
+
+  const edit = (item) => {
+    setForm({
+      id: item.id,
+      label: item.label || '',
+      image_url: item.image_url || '',
+      is_active: Boolean(item.is_active),
+      sort_order: item.sort_order || 0,
+    });
+  };
+
+  const reset = () => setForm(EMPTY_GALLERY_ITEM);
+
+  const save = async (event) => {
+    event.preventDefault();
+    if (!form.image_url) {
+      showNotice('error', 'Upload gambar galeri terlebih dahulu.');
+      return;
+    }
+
+    setSaving(true);
+
+    const payload = {
+      label: form.label.trim(),
+      image_url: form.image_url,
+      is_active: form.is_active,
+      sort_order: Number(form.sort_order) || 0,
+    };
+
+    const result = form.id
+      ? await client.from('gallery_items').update(payload).eq('id', form.id)
+      : await client.from('gallery_items').insert(payload);
+
+    if (result.error) {
+      showNotice('error', result.error.message);
+    } else {
+      showNotice('success', form.id ? 'Galeri berhasil diperbarui.' : 'Galeri berhasil ditambahkan.', true);
+      reset();
+      await onChanged();
+    }
+    setSaving(false);
+  };
+
+  const remove = async (item) => {
+    if (!window.confirm('Hapus permanen galeri "' + item.label + '"?')) return;
+    const { error } = await client.from('gallery_items').delete().eq('id', item.id);
+    if (error) showNotice('error', error.message);
+    else {
+      showNotice('success', 'Galeri berhasil dihapus.', true);
+      await onChanged();
+      if (form.id === item.id) reset();
+    }
+  };
+
+  const uploadGalleryImage = async (file) => {
+    setUploading(true);
+    const result = await uploadImageFile(client, file, 'gallery', form.label || 'galeri');
+    if (result.error) {
+      showNotice('error', result.error);
+    } else {
+      setForm((current) => ({ ...current, image_url: result.publicUrl }));
+      showNotice('success', 'Gambar galeri berhasil diupload.');
+    }
+    setUploading(false);
+  };
+
+  return (
+    <div className="admin-workspace">
+      <form className="admin-panel admin-form-panel" onSubmit={save}>
+        <div className="admin-panel-head">
+          <h2>{form.id ? 'Edit Galeri' : 'Tambah Galeri'}</h2>
+          {form.id && <button type="button" className="admin-text-btn" onClick={reset}>Batal edit</button>}
+        </div>
+
+        <TextField label="Judul/label foto" value={form.label} onChange={(value) => setForm({ ...form, label: value })} required />
+        <ImageUploadField
+          label="Foto galeri"
+          imageUrl={form.image_url}
+          uploading={uploading}
+          onUpload={uploadGalleryImage}
+          onClear={() => setForm({ ...form, image_url: '' })}
+        />
+        <TextField label="Urutan tampil" type="number" value={form.sort_order} onChange={(value) => setForm({ ...form, sort_order: value })} />
+        <ToggleField label="Aktif tampil" checked={form.is_active} onChange={(checked) => setForm({ ...form, is_active: checked })} />
+
+        <button className="admin-primary-btn" type="submit" disabled={saving}>
+          <i className="bi bi-save"></i> {saving ? 'Menyimpan...' : 'Simpan Galeri'}
+        </button>
+
+        {form.id && (
+          <button
+            className="admin-danger-btn"
+            type="button"
+            onClick={() => remove({ id: form.id, label: form.label })}
+          >
+            <i className="bi bi-trash"></i> Hapus Galeri Ini
+          </button>
+        )}
+      </form>
+
+      <div className="admin-panel">
+        <div className="admin-panel-head">
+          <h2>Daftar Galeri</h2>
+          <span>{galleryItems.length} data</span>
+        </div>
+        <div className="admin-list">
+          {galleryItems.map((item) => (
+            <div className="admin-list-item article" key={item.id}>
+              <div className="admin-thumb">
+                {item.image_url ? <img src={item.image_url} alt={item.label} /> : <i className="bi bi-image"></i>}
+              </div>
+              <div className="admin-list-copy">
+                <strong>{item.label}</strong>
+                <span>Galeri Kegiatan · Urutan {item.sort_order || 0}</span>
+              </div>
+              <div className="admin-status">
+                {item.is_active ? 'Aktif' : 'Nonaktif'}
+              </div>
+              <div className="admin-row-actions">
+                <button className="admin-action-btn" onClick={() => edit(item)} aria-label={'Edit ' + item.label}>
+                  <i className="bi bi-pencil"></i><span>Edit</span>
+                </button>
+                <button className="admin-action-btn danger" onClick={() => remove(item)} aria-label={'Hapus ' + item.label}>
+                  <i className="bi bi-trash"></i><span>Hapus</span>
+                </button>
+              </div>
+            </div>
+          ))}
+          {!galleryItems.length && <EmptyState label="Belum ada galeri kegiatan di Supabase." />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TestimonialManager({ client, testimonials, onChanged, showNotice }) {
+  const [form, setForm] = useStateA(EMPTY_TESTIMONIAL);
+  const [saving, setSaving] = useStateA(false);
+  const [uploading, setUploading] = useStateA(false);
+
+  const edit = (testimonial) => {
+    setForm({
+      id: testimonial.id,
+      alt_text: testimonial.alt_text || 'Testimoni Alumni BLC',
+      image_url: testimonial.image_url || '',
+      is_active: Boolean(testimonial.is_active),
+      sort_order: testimonial.sort_order || 0,
+    });
+  };
+
+  const reset = () => setForm(EMPTY_TESTIMONIAL);
+
+  const save = async (event) => {
+    event.preventDefault();
+    if (!form.image_url) {
+      showNotice('error', 'Upload gambar testimoni terlebih dahulu.');
+      return;
+    }
+
+    setSaving(true);
+
+    const payload = {
+      alt_text: form.alt_text.trim() || 'Testimoni Alumni BLC',
+      image_url: form.image_url,
+      is_active: form.is_active,
+      sort_order: Number(form.sort_order) || 0,
+    };
+
+    const result = form.id
+      ? await client.from('testimonials').update(payload).eq('id', form.id)
+      : await client.from('testimonials').insert(payload);
+
+    if (result.error) {
+      showNotice('error', result.error.message);
+    } else {
+      showNotice('success', form.id ? 'Testimoni berhasil diperbarui.' : 'Testimoni berhasil ditambahkan.', true);
+      reset();
+      await onChanged();
+    }
+    setSaving(false);
+  };
+
+  const remove = async (testimonial) => {
+    if (!window.confirm('Hapus permanen testimoni ini?')) return;
+    const { error } = await client.from('testimonials').delete().eq('id', testimonial.id);
+    if (error) showNotice('error', error.message);
+    else {
+      showNotice('success', 'Testimoni berhasil dihapus.', true);
+      await onChanged();
+      if (form.id === testimonial.id) reset();
+    }
+  };
+
+  const uploadTestimonialImage = async (file) => {
+    setUploading(true);
+    const result = await uploadImageFile(client, file, 'testimonials', form.alt_text || 'testimoni');
+    if (result.error) {
+      showNotice('error', result.error);
+    } else {
+      setForm((current) => ({ ...current, image_url: result.publicUrl }));
+      showNotice('success', 'Gambar testimoni berhasil diupload.');
+    }
+    setUploading(false);
+  };
+
+  return (
+    <div className="admin-workspace">
+      <form className="admin-panel admin-form-panel" onSubmit={save}>
+        <div className="admin-panel-head">
+          <h2>{form.id ? 'Edit Testimoni' : 'Tambah Testimoni'}</h2>
+          {form.id && <button type="button" className="admin-text-btn" onClick={reset}>Batal edit</button>}
+        </div>
+
+        <TextField label="Teks alternatif" value={form.alt_text} onChange={(value) => setForm({ ...form, alt_text: value })} required />
+        <ImageUploadField
+          label="Gambar testimoni"
+          imageUrl={form.image_url}
+          uploading={uploading}
+          onUpload={uploadTestimonialImage}
+          onClear={() => setForm({ ...form, image_url: '' })}
+        />
+        <TextField label="Urutan tampil" type="number" value={form.sort_order} onChange={(value) => setForm({ ...form, sort_order: value })} />
+        <ToggleField label="Aktif tampil" checked={form.is_active} onChange={(checked) => setForm({ ...form, is_active: checked })} />
+
+        <button className="admin-primary-btn" type="submit" disabled={saving}>
+          <i className="bi bi-save"></i> {saving ? 'Menyimpan...' : 'Simpan Testimoni'}
+        </button>
+
+        {form.id && (
+          <button
+            className="admin-danger-btn"
+            type="button"
+            onClick={() => remove({ id: form.id })}
+          >
+            <i className="bi bi-trash"></i> Hapus Testimoni Ini
+          </button>
+        )}
+      </form>
+
+      <div className="admin-panel">
+        <div className="admin-panel-head">
+          <h2>Daftar Testimoni</h2>
+          <span>{testimonials.length} data</span>
+        </div>
+        <div className="admin-list">
+          {testimonials.map((testimonial) => (
+            <div className="admin-list-item article" key={testimonial.id}>
+              <div className="admin-thumb">
+                {testimonial.image_url ? <img src={testimonial.image_url} alt={testimonial.alt_text} /> : <i className="bi bi-image"></i>}
+              </div>
+              <div className="admin-list-copy">
+                <strong>{testimonial.alt_text}</strong>
+                <span>Testimoni Alumni · Urutan {testimonial.sort_order || 0}</span>
+              </div>
+              <div className="admin-status">
+                {testimonial.is_active ? 'Aktif' : 'Nonaktif'}
+              </div>
+              <div className="admin-row-actions">
+                <button className="admin-action-btn" onClick={() => edit(testimonial)} aria-label="Edit testimoni">
+                  <i className="bi bi-pencil"></i><span>Edit</span>
+                </button>
+                <button className="admin-action-btn danger" onClick={() => remove(testimonial)} aria-label="Hapus testimoni">
+                  <i className="bi bi-trash"></i><span>Hapus</span>
+                </button>
+              </div>
+            </div>
+          ))}
+          {!testimonials.length && <EmptyState label="Belum ada testimoni alumni di Supabase." />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ImportPanel({ client, onChanged, showNotice, teachersCount, articlesCount, galleryCount, testimonialsCount }) {
   const [importing, setImporting] = useStateA(false);
 
   const importLocalData = async () => {
@@ -612,14 +949,18 @@ function ImportPanel({ client, onChanged, showNotice, teachersCount, articlesCou
 
     const teacherRows = buildLocalTeacherRows();
     const articleRows = buildLocalArticleRows();
+    const galleryRows = buildLocalGalleryRows();
+    const testimonialRows = buildLocalTestimonialRows();
 
-    const [teachersResult, articlesResult] = await Promise.all([
+    const [teachersResult, articlesResult, galleryResult, testimonialResult] = await Promise.all([
       teacherRows.length ? client.from('teachers').insert(teacherRows) : Promise.resolve({ error: null }),
       articleRows.length ? client.from('articles').insert(articleRows) : Promise.resolve({ error: null }),
+      galleryRows.length ? client.from('gallery_items').insert(galleryRows) : Promise.resolve({ error: null }),
+      testimonialRows.length ? client.from('testimonials').insert(testimonialRows) : Promise.resolve({ error: null }),
     ]);
 
-    if (teachersResult.error || articlesResult.error) {
-      showNotice('error', teachersResult.error?.message || articlesResult.error?.message);
+    if (teachersResult.error || articlesResult.error || galleryResult.error || testimonialResult.error) {
+      showNotice('error', teachersResult.error?.message || articlesResult.error?.message || galleryResult.error?.message || testimonialResult.error?.message);
     } else {
       showNotice('success', 'Data lokal berhasil diimport ke Supabase.');
       await onChanged();
@@ -633,12 +974,14 @@ function ImportPanel({ client, onChanged, showNotice, teachersCount, articlesCou
         <h2>Import dari data.jsx</h2>
       </div>
       <p>
-        Gunakan tombol ini untuk memindahkan data awal guru dan artikel dari file lokal ke Supabase.
+        Gunakan tombol ini untuk memindahkan data awal guru, artikel, galeri, dan testimoni dari file lokal ke Supabase.
         Setelah data masuk, edit berikutnya dilakukan dari admin panel ini.
       </p>
       <div className="admin-import-stats">
         <div><strong>{teachersCount}</strong><span>guru di Supabase</span></div>
         <div><strong>{articlesCount}</strong><span>artikel di Supabase</span></div>
+        <div><strong>{galleryCount}</strong><span>galeri di Supabase</span></div>
+        <div><strong>{testimonialsCount}</strong><span>testimoni di Supabase</span></div>
       </div>
       <button className="admin-primary-btn" onClick={importLocalData} disabled={importing}>
         <i className="bi bi-database-add"></i>
@@ -935,6 +1278,24 @@ function buildLocalArticleRows() {
     is_published: true,
     sort_order: index,
   }));
+}
+
+function buildLocalGalleryRows() {
+  return (BLC_DATA.GALLERY_ITEMS || []).map((item, index) => ({
+    label: item.label || 'Galeri Kegiatan',
+    image_url: item.image || '',
+    is_active: true,
+    sort_order: index,
+  })).filter((item) => item.image_url);
+}
+
+function buildLocalTestimonialRows() {
+  return (BLC_DATA.TESTIMONIALS || []).map((item, index) => ({
+    alt_text: item.alt || 'Testimoni Alumni BLC',
+    image_url: item.image || '',
+    is_active: true,
+    sort_order: index,
+  })).filter((item) => item.image_url);
 }
 
 function parseLocalDate(value) {

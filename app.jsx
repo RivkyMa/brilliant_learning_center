@@ -37,7 +37,7 @@ function App() {
     let cancelled = false;
 
     const loadRemoteData = async () => {
-      const [teacherResult, articleResult] = await Promise.all([
+      const [teacherResult, articleResult, galleryResult, testimonialResult] = await Promise.all([
         client
           .from('teachers')
           .select('*')
@@ -50,26 +50,45 @@ function App() {
           .eq('is_published', true)
           .order('sort_order', { ascending: true })
           .order('published_at', { ascending: false }),
+        client
+          .from('gallery_items')
+          .select('*')
+          .eq('is_active', true)
+          .order('sort_order', { ascending: true })
+          .order('created_at', { ascending: false }),
+        client
+          .from('testimonials')
+          .select('*')
+          .eq('is_active', true)
+          .order('sort_order', { ascending: true })
+          .order('created_at', { ascending: false }),
       ]);
 
       if (cancelled) return;
 
-      if (teacherResult.error || articleResult.error) {
-        console.warn('Supabase data fallback:', teacherResult.error || articleResult.error);
-        return;
-      }
+      [teacherResult, articleResult, galleryResult, testimonialResult]
+        .filter((result) => result.error)
+        .forEach((result) => console.warn('Supabase data fallback:', result.error));
 
       setSiteData((currentData) => {
         const nextData = { ...currentData };
 
-        if (teacherResult.data && teacherResult.data.length) {
+        if (!teacherResult.error && teacherResult.data && teacherResult.data.length) {
           const mappedTeachers = mapSupabaseTeachers(teacherResult.data);
           nextData.TEAM_MGMT = mappedTeachers.management;
           nextData.TEAM_TEACHERS = mappedTeachers.teachers;
         }
 
-        if (articleResult.data && articleResult.data.length) {
+        if (!articleResult.error && articleResult.data && articleResult.data.length) {
           nextData.BLOG_POSTS = articleResult.data.map(mapSupabaseArticle);
+        }
+
+        if (!galleryResult.error && galleryResult.data && galleryResult.data.length) {
+          nextData.GALLERY_ITEMS = galleryResult.data.map(mapSupabaseGalleryItem);
+        }
+
+        if (!testimonialResult.error && testimonialResult.data && testimonialResult.data.length) {
+          nextData.TESTIMONIALS = testimonialResult.data.map(mapSupabaseTestimonial);
         }
 
         return nextData;
@@ -106,8 +125,8 @@ function App() {
           <Services onRegister={goRegister}/>
           <Team data={siteData}/>
           <Achievement/>
-          <Testimonials/>
-          <Gallery/>
+          <Testimonials data={siteData}/>
+          <Gallery data={siteData}/>
           <Blog data={siteData}/>
           <FAQ/>
           <Contact/>
@@ -244,6 +263,20 @@ function mapSupabaseArticle(row) {
     image: row.image_url || '',
     content: Array.isArray(row.content) ? row.content : [],
     takeaway: row.takeaway || '',
+  };
+}
+
+function mapSupabaseGalleryItem(row) {
+  return {
+    label: row.label,
+    image: row.image_url || '',
+  };
+}
+
+function mapSupabaseTestimonial(row) {
+  return {
+    image: row.image_url || '',
+    alt: row.alt_text || 'Testimoni Alumni BLC',
   };
 }
 
