@@ -1,4 +1,4 @@
-/* global React, ReactDOM, Header, Hero, About, StatsBand, VisionMission, Services, Team, Achievement, Testimonials, Gallery, Blog, FAQ, Contact, CTABand, Footer, Registration, useTweaks, TweaksPanel, TweakSection, TweakColor, TweakRadio, TweakSelect */
+/* global React, ReactDOM, BLC_DATA, Header, Hero, About, StatsBand, VisionMission, Services, Team, Achievement, Testimonials, Gallery, Blog, FAQ, Contact, CTABand, Footer, Registration, useTweaks, TweaksPanel, TweakSection, TweakColor, TweakRadio, TweakSelect */
 const { useState, useEffect } = React;
 
 const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
@@ -14,6 +14,7 @@ function App() {
   const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const setTweaks = (obj) => { Object.entries(obj).forEach(([k,v]) => setTweak(k, v)); };
   const [page, setPage] = useState('home');
+  const [siteData, setSiteData] = useState(BLC_DATA);
 
   // Apply CSS variables from tweaks
   useEffect(() => {
@@ -28,6 +29,59 @@ function App() {
     root.setProperty('--bg-tint', mix(p, '#FFFFFF', 0.92));
     root.setProperty('--font-head', `'${tweaks.fontHead}', system-ui, sans-serif`);
   }, [tweaks.primaryColor, tweaks.accentColor, tweaks.fontHead]);
+
+  useEffect(() => {
+    const client = createPublicSupabaseClient();
+    if (!client) return;
+
+    let cancelled = false;
+
+    const loadRemoteData = async () => {
+      const [teacherResult, articleResult] = await Promise.all([
+        client
+          .from('teachers')
+          .select('*')
+          .eq('is_active', true)
+          .order('sort_order', { ascending: true })
+          .order('created_at', { ascending: false }),
+        client
+          .from('articles')
+          .select('*')
+          .eq('is_published', true)
+          .order('sort_order', { ascending: true })
+          .order('published_at', { ascending: false }),
+      ]);
+
+      if (cancelled) return;
+
+      if (teacherResult.error || articleResult.error) {
+        console.warn('Supabase data fallback:', teacherResult.error || articleResult.error);
+        return;
+      }
+
+      setSiteData((currentData) => {
+        const nextData = { ...currentData };
+
+        if (teacherResult.data && teacherResult.data.length) {
+          const mappedTeachers = mapSupabaseTeachers(teacherResult.data);
+          nextData.TEAM_MGMT = mappedTeachers.management;
+          nextData.TEAM_TEACHERS = mappedTeachers.teachers;
+        }
+
+        if (articleResult.data && articleResult.data.length) {
+          nextData.BLOG_POSTS = articleResult.data.map(mapSupabaseArticle);
+        }
+
+        return nextData;
+      });
+    };
+
+    loadRemoteData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const onNavClick = (id) => {
     if (page !== 'home') { setPage('home'); setTimeout(()=>scrollTo(id), 80); }
@@ -50,11 +104,11 @@ function App() {
           <StatsBand/>
           <VisionMission/>
           <Services onRegister={goRegister}/>
-          <Team/>
+          <Team data={siteData}/>
           <Achievement/>
           <Testimonials/>
           <Gallery/>
-          <Blog/>
+          <Blog data={siteData}/>
           <FAQ/>
           <Contact/>
           <CTABand onRegister={goRegister}/>
@@ -129,5 +183,87 @@ function hexToRgb(h){h=h.replace('#','');if(h.length===3)h=h.split('').map(c=>c+
 function rgbToHex(r,g,b){return '#'+[r,g,b].map(x=>Math.max(0,Math.min(255,Math.round(x))).toString(16).padStart(2,'0')).join('');}
 function shade(hex, pct){const [r,g,b]=hexToRgb(hex);const f=pct/100;if(pct<0){return rgbToHex(r*(1+f),g*(1+f),b*(1+f));}return rgbToHex(r+(255-r)*f,g+(255-g)*f,b+(255-b)*f);}
 function mix(a,b,t){const A=hexToRgb(a),B=hexToRgb(b);return rgbToHex(A[0]*(1-t)+B[0]*t,A[1]*(1-t)+B[1]*t,A[2]*(1-t)+B[2]*t);}
+
+function createPublicSupabaseClient() {
+  const config = window.BLC_SUPABASE;
+  const supabaseLib = window.supabase;
+  const hasRealConfig = config &&
+    config.enabled === true &&
+    config.url &&
+    config.anonKey &&
+    !config.url.includes('YOUR_PROJECT_ID') &&
+    !config.anonKey.includes('YOUR_SUPABASE_ANON_KEY');
+
+  if (!hasRealConfig || !supabaseLib) return null;
+  return supabaseLib.createClient(config.url, config.anonKey);
+}
+
+function mapSupabaseTeachers(rows) {
+  const subjectOrder = ['Matematika', 'Fisika', 'Kimia', 'Biologi', 'Lainnya'];
+  const teachers = subjectOrder.reduce((groups, subject) => {
+    groups[subject] = [];
+    return groups;
+  }, {});
+
+  const management = [];
+
+  rows.forEach((row) => {
+    const item = {
+      name: row.name,
+      role: row.role,
+      uni: row.university || undefined,
+      placeholder: row.initials || getInitialsFromName(row.name),
+      img: row.image_url || undefined,
+    };
+
+    if (row.is_management) {
+      management.push(item);
+      return;
+    }
+
+    const subject = row.subject || 'Lainnya';
+    if (!teachers[subject]) teachers[subject] = [];
+    teachers[subject].push(item);
+  });
+
+  return {
+    management,
+    teachers: Object.fromEntries(
+      Object.entries(teachers).filter(([, list]) => list.length)
+    ),
+  };
+}
+
+function mapSupabaseArticle(row) {
+  return {
+    cat: row.category || 'Artikel',
+    date: formatDisplayDate(row.published_at),
+    readTime: row.read_time || '',
+    title: row.title,
+    excerpt: row.excerpt || '',
+    image: row.image_url || '',
+    content: Array.isArray(row.content) ? row.content : [],
+    takeaway: row.takeaway || '',
+  };
+}
+
+function formatDisplayDate(value) {
+  if (!value) return '';
+  return new Intl.DateTimeFormat('id-ID', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(value + 'T00:00:00'));
+}
+
+function getInitialsFromName(name) {
+  return String(name || '')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase() || 'BLC';
+}
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);

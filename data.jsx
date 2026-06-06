@@ -100,26 +100,86 @@ const BLOG_POSTS = [
   {
     cat: 'Tips Belajar',
     date: '12 Apr 2026',
+    readTime: '5 menit baca',
     title: '5 Strategi Efektif Hadapi UTBK SNBT 2026',
     excerpt:
       'Mendekati UTBK, persiapan mental dan strategi pengerjaan soal sama pentingnya dengan penguasaan materi…',
     image: 'assets/img/artikel1.png',
+    content: [
+      {
+        heading: 'Mulai dari peta kemampuan',
+        body: 'Sebelum menambah jam belajar, siswa perlu tahu dulu bagian mana yang sudah kuat dan bagian mana yang masih sering membuat nilai turun. Gunakan hasil try out, catatan kesalahan, dan evaluasi guru untuk membuat prioritas materi.',
+      },
+      {
+        heading: 'Latihan soal dengan batas waktu',
+        body: 'UTBK bukan hanya tentang bisa menjawab soal, tetapi juga mampu menjaga ritme. Biasakan mengerjakan paket soal dengan timer agar siswa belajar memilih soal yang harus dikerjakan dulu dan soal yang lebih baik dilewati sementara.',
+      },
+      {
+        heading: 'Bangun rutinitas review',
+        body: 'Review singkat setiap hari lebih efektif dibanding belajar banyak sekaligus menjelang ujian. Sisihkan waktu 20-30 menit untuk mengulang rumus, konsep, dan tipe soal yang sebelumnya keliru.',
+      },
+      {
+        heading: 'Jaga kondisi mental dan fisik',
+        body: 'Tidur cukup, makan teratur, dan jeda istirahat punya pengaruh besar terhadap konsentrasi. Di BLC, siswa juga dibantu membangun rasa percaya diri agar persiapan terasa lebih terarah dan tidak membuat panik.',
+      },
+    ],
+    takeaway: 'Kunci persiapan UTBK adalah konsisten, terukur, dan berani mengevaluasi kesalahan sejak awal.',
   },
   {
     cat: 'Prestasi',
     date: '02 Apr 2026',
+    readTime: '4 menit baca',
     title: 'Alumni BLC Kembali Lolos PTN Favorit Tahun Ini',
     excerpt:
       'Lebih dari 90% siswa BLC angkatan 2025 berhasil lolos ke PTN pilihan, mulai dari ITB, UI, UPI, hingga Unpad…',
     image: 'assets/img/artikel2.png',
+    content: [
+      {
+        heading: 'Perjalanan yang dibangun bertahap',
+        body: 'Keberhasilan alumni BLC tidak datang dalam satu malam. Mereka melewati proses belajar rutin, try out berkala, evaluasi nilai, dan diskusi personal untuk menentukan strategi masuk kampus impian.',
+      },
+      {
+        heading: 'Pendampingan sesuai target jurusan',
+        body: 'Setiap siswa punya tujuan yang berbeda. Ada yang mengejar teknik, kedokteran, pendidikan, sosial humaniora, hingga sekolah kedinasan. Karena itu, mentor BLC membantu siswa memilih fokus materi yang sesuai dengan target masing-masing.',
+      },
+      {
+        heading: 'Kolaborasi siswa, mentor, dan orang tua',
+        body: 'Hasil terbaik biasanya lahir dari komunikasi yang rapi. Orang tua mendapat gambaran perkembangan, mentor memberi arahan belajar, dan siswa belajar mengambil tanggung jawab terhadap targetnya sendiri.',
+      },
+      {
+        heading: 'Prestasi sebagai motivasi angkatan berikutnya',
+        body: 'Cerita alumni menjadi bukti bahwa target besar bisa dicapai dengan proses yang terarah. BLC terus menjaga budaya belajar yang suportif agar siswa baru punya contoh nyata untuk dituju.',
+      },
+    ],
+    takeaway: 'Prestasi alumni adalah hasil dari proses panjang yang konsisten, bukan sekadar keberuntungan saat ujian.',
   },
   {
     cat: 'Edukasi',
     date: '21 Mar 2026',
+    readTime: '6 menit baca',
     title: 'Mengenal Tipe Belajar Anak: Visual, Auditori, atau Kinestetik?',
     excerpt:
       'Setiap anak punya gaya belajar yang berbeda. Mengenali tipe belajar membantu orang tua memilih metode bimbel yang tepat…',
     image: 'assets/img/artikel3.png',
+    content: [
+      {
+        heading: 'Anak visual lebih mudah memahami gambar',
+        body: 'Anak dengan kecenderungan visual biasanya terbantu oleh diagram, warna, mind map, tabel, dan contoh tertulis. Materi yang abstrak akan lebih mudah dipahami jika dibuat menjadi bentuk yang bisa dilihat.',
+      },
+      {
+        heading: 'Anak auditori kuat lewat penjelasan',
+        body: 'Tipe auditori sering lebih cepat menangkap materi ketika mendengar penjelasan guru, berdiskusi, atau mengulang materi dengan suara. Mereka cocok diberi kesempatan bertanya dan menjelaskan ulang konsep.',
+      },
+      {
+        heading: 'Anak kinestetik belajar lewat praktik',
+        body: 'Anak kinestetik membutuhkan aktivitas yang melibatkan gerak, eksperimen, simulasi, atau latihan langsung. Mereka biasanya lebih fokus saat pembelajaran tidak hanya duduk dan mendengar.',
+      },
+      {
+        heading: 'Gaya belajar bisa dikombinasikan',
+        body: 'Sebagian besar anak tidak hanya punya satu gaya belajar. Pendekatan terbaik adalah menggabungkan visual, penjelasan, dan praktik sesuai kebutuhan materi. Mentor BLC membantu membaca pola ini agar siswa belajar dengan cara yang lebih nyaman.',
+      },
+    ],
+    takeaway: 'Mengenali gaya belajar anak membantu orang tua dan mentor memilih pendekatan yang lebih tepat, sabar, dan efektif.',
   },
 ];
 

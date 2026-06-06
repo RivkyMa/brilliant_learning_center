@@ -362,10 +362,19 @@ function Services({ onRegister }) {
 }
 
 /* ============ TEAM ============ */
-function Team() {
+function Team({ data = BLC_DATA }) {
   const [tab, setTab] = useStateH('Manajemen');
-  const tabs = ['Manajemen','Matematika','Fisika','Kimia','Biologi', 'Lainnya'];
-  const list = tab === 'Manajemen' ? BLC_DATA.TEAM_MGMT : BLC_DATA.TEAM_TEACHERS[tab];
+  const teacherGroups = data.TEAM_TEACHERS || {};
+  const subjectOrder = ['Matematika','Fisika','Kimia','Biologi', 'Lainnya'];
+  const remoteSubjects = Object.keys(teacherGroups).filter((subject) => !subjectOrder.includes(subject));
+  const tabs = ['Manajemen']
+    .concat(subjectOrder.filter((subject) => teacherGroups[subject] && teacherGroups[subject].length))
+    .concat(remoteSubjects);
+  const tabKey = tabs.join('|');
+  useEffectH(() => {
+    if (!tabs.includes(tab)) setTab(tabs[0] || 'Manajemen');
+  }, [tab, tabKey]);
+  const list = tab === 'Manajemen' ? (data.TEAM_MGMT || []) : (teacherGroups[tab] || []);
 
   return (
     <section id="team">
@@ -556,7 +565,29 @@ function Gallery() {
 }
 
 /* ============ BLOG ============ */
-function Blog() {
+function Blog({ data = BLC_DATA }) {
+  const [selectedPost, setSelectedPost] = useStateH(null);
+  const posts = data.BLOG_POSTS || [];
+
+  useEffectH(() => {
+    if (!selectedPost) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') setSelectedPost(null);
+    };
+
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [selectedPost]);
+
+  const openPost = (post) => setSelectedPost(post);
+
   return (
     <section id="blog" className="blog">
       <div className="container">
@@ -569,10 +600,27 @@ function Blog() {
         </div>
 
         <div className="blog-grid">
-          {BLOG_POSTS.map((p, i) => (
-            <article className="blog-card" key={i}>
+          {posts.map((p, i) => (
+            <article
+              className="blog-card"
+              key={p.title}
+              role="button"
+              tabIndex={0}
+              aria-label={'Baca artikel ' + p.title}
+              onClick={() => openPost(p)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  openPost(p);
+                }
+              }}
+            >
               <div className="img">
-                <img src={p.image} alt={p.title} />
+                {p.image ? (
+                  <img src={p.image} alt={p.title} />
+                ) : (
+                  <div className="placeholder">Artikel BLC</div>
+                )}
               </div>
 
               <div className="body">
@@ -584,12 +632,75 @@ function Blog() {
                 </div>
                 <h4>{p.title}</h4>
                 <p>{p.excerpt}</p>
+                <span className="read-more">
+                  Baca artikel <i className="bi bi-arrow-right"></i>
+                </span>
               </div>
             </article>
           ))}
         </div>
       </div>
+
+      {selectedPost && (
+        <BlogModal post={selectedPost} onClose={() => setSelectedPost(null)} />
+      )}
     </section>
+  );
+}
+
+function BlogModal({ post, onClose }) {
+  return (
+    <div
+      className="article-modal-backdrop"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <article
+        className="article-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="article-modal-title"
+      >
+        <button className="article-close" onClick={onClose} aria-label="Tutup artikel">
+          <i className="bi bi-x-lg"></i>
+        </button>
+
+        <div className="article-hero">
+          {post.image ? (
+            <img src={post.image} alt={post.title} />
+          ) : (
+            <div className="article-hero-placeholder">Artikel BLC</div>
+          )}
+        </div>
+
+        <div className="article-content">
+          <div className="article-meta">
+            <span>{post.cat}</span>
+            <span><i className="bi bi-calendar3"></i> {post.date}</span>
+            {post.readTime && <span><i className="bi bi-clock"></i> {post.readTime}</span>}
+          </div>
+
+          <h3 id="article-modal-title">{post.title}</h3>
+          <p className="article-lead">{post.excerpt}</p>
+
+          {(post.content || []).map((section, index) => (
+            <section className="article-section" key={index}>
+              <h4>{section.heading}</h4>
+              <p>{section.body}</p>
+            </section>
+          ))}
+
+          {post.takeaway && (
+            <div className="article-takeaway">
+              <i className="bi bi-lightbulb"></i>
+              <p>{post.takeaway}</p>
+            </div>
+          )}
+        </div>
+      </article>
+    </div>
   );
 }
 
