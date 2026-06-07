@@ -269,6 +269,8 @@ function mapSupabaseArticle(row) {
 function mapSupabaseGalleryItem(row) {
   return {
     label: row.label,
+    description: row.description || '',
+    icon: row.icon || '',
     image: row.image_url || '',
   };
 }

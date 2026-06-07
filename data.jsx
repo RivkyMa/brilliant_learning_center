@@ -90,26 +90,38 @@ const TESTIMONIALS = [
 const GALLERY_ITEMS = [
   {
     label: 'Suasana Kelas Reguler',
+    description: 'Suasana belajar terarah dan interaktif',
+    icon: 'bi-people',
     image: 'assets/img/kelasreg.jfif',
   },
   {
     label: 'Suasana Kelas Regular',
+    description: 'Belajar bersama, bertukar ide, menguatkan pemahaman',
+    icon: 'bi-chat-square-dots',
     image: 'assets/img/kelas.png',
   },
   {
     label: 'Suasana Kelas Reguler',
+    description: 'Aktif, fokus, dan penuh semangat',
+    icon: 'bi-star',
     image: 'assets/img/bg2.jpg',
   },
   {
     label: 'Diskusi Kelompok',
+    description: 'Belajar bersama, bertukar ide, menguatkan pemahaman',
+    icon: 'bi-chat-square-dots',
     image: 'assets/img/kelas2.png',
   },
   {
     label: 'kelas private',
+    description: 'Pendampingan intensif sesuai kebutuhan siswa',
+    icon: 'bi-person',
     image: 'assets/img/private.jpeg',
   },
   {
     label: 'Workshop Persiapan PTN',
+    description: 'Persiapan matang untuk masa depan cerah',
+    icon: 'bi-mortarboard',
     image: 'assets/img/workshop1.jpg',
   },
 ];

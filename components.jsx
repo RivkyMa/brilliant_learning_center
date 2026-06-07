@@ -468,25 +468,33 @@ function Testimonials({ data = BLC_DATA }) {
   const [touchStartX, setTouchStartX] = useStateH(null);
   const testimonials = data.TESTIMONIALS || [];
   const total = testimonials.length;
+  const perPage = 3;
+  const pages = [];
+
+  for (let i = 0; i < testimonials.length; i += perPage) {
+    pages.push(testimonials.slice(i, i + perPage));
+  }
+
+  const totalPages = pages.length;
 
   useEffectH(() => {
-    if (paused || total <= 1) return undefined;
-    const t = setInterval(() => setPage(p => (p + 1) % total), 5000);
+    if (paused || totalPages <= 1) return undefined;
+    const t = setInterval(() => setPage(p => (p + 1) % totalPages), 5000);
     return () => clearInterval(t);
-  }, [paused, total]);
+  }, [paused, totalPages]);
 
   useEffectH(() => {
-    if (page >= total) setPage(0);
-  }, [page, total]);
+    if (page >= totalPages) setPage(0);
+  }, [page, totalPages]);
 
   const next = () => {
-    if (!total) return;
-    setPage(p => (p + 1) % total);
+    if (!totalPages) return;
+    setPage(p => (p + 1) % totalPages);
   };
 
   const prev = () => {
-    if (!total) return;
-    setPage(p => (p - 1 + total) % total);
+    if (!totalPages) return;
+    setPage(p => (p - 1 + totalPages) % totalPages);
   };
 
   const handleTouchEnd = (event) => {
@@ -515,7 +523,7 @@ function Testimonials({ data = BLC_DATA }) {
         onTouchStart={(event) => setTouchStartX(event.touches[0].clientX)}
         onTouchEnd={handleTouchEnd}
       >
-        {total > 1 && (
+        {totalPages > 1 && (
           <button className="testi-nav prev" onClick={prev} aria-label="Testimoni sebelumnya">
             <i className="bi bi-chevron-left"></i>
           </button>
@@ -523,15 +531,22 @@ function Testimonials({ data = BLC_DATA }) {
 
         <div className="testi-viewport">
           <div className="testi-track" style={{ transform: `translateX(-${page * 100}%)` }}>
-            {testimonials.map((t, i) => (
-              <div className="testi-slide" key={t.image + i}>
-                <div className="testi-card testi-image-card">
-                  <img
-                    src={t.image}
-                    alt={t.alt}
-                    className="testi-image"
-                    loading={i === 0 ? 'eager' : 'lazy'}
-                  />
+            {pages.map((group, groupIndex) => (
+              <div className="testi-slide" key={'testi-page-' + groupIndex}>
+                <div className={'testi-slide-grid count-' + group.length}>
+                  {group.map((t, i) => {
+                    const itemIndex = groupIndex * perPage + i;
+                    return (
+                      <div className="testi-card testi-image-card" key={t.image + itemIndex}>
+                        <img
+                          src={t.image}
+                          alt={t.alt}
+                          className="testi-image"
+                          loading={itemIndex < perPage ? 'eager' : 'lazy'}
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             ))}
@@ -546,21 +561,21 @@ function Testimonials({ data = BLC_DATA }) {
           </div>
         </div>
 
-        {total > 1 && (
+        {totalPages > 1 && (
           <button className="testi-nav next" onClick={next} aria-label="Testimoni berikutnya">
             <i className="bi bi-chevron-right"></i>
           </button>
         )}
       </div>
 
-      {total > 1 && (
+      {totalPages > 1 && (
       <div className="slider-dots">
-        {testimonials.map((_, i) => (
+        {pages.map((_, i) => (
           <button
             key={i}
             className={'dot ' + (page === i ? 'active' : '')}
             onClick={() => setPage(i)}
-            aria-label={`Tampilkan testimoni ${i + 1}`}
+            aria-label={`Tampilkan grup testimoni ${i + 1}`}
           />
         ))}
       </div>
@@ -573,30 +588,120 @@ function Testimonials({ data = BLC_DATA }) {
 /* ============ GALLERY ============ */
 function Gallery({ data = BLC_DATA }) {
   const items = data.GALLERY_ITEMS || [];
+  const visibleItems = items.slice(0, 5);
+  const galleryHighlights = [
+    {
+      icon: 'bi-people',
+      text: 'Kelas reguler yang kondusif dan interaktif',
+    },
+    {
+      icon: 'bi-person',
+      text: 'Pendampingan privat sesuai kebutuhan siswa',
+    },
+    {
+      icon: 'bi-chat-square-dots',
+      text: 'Workshop dan diskusi untuk membangun kepercayaan diri',
+    },
+  ];
+  const galleryMeta = [
+    {
+      icon: 'bi-people',
+      subtitle: 'Suasana belajar terarah dan interaktif',
+    },
+    {
+      icon: 'bi-chat-square-dots',
+      subtitle: 'Belajar bersama, bertukar ide, menguatkan pemahaman',
+    },
+    {
+      icon: 'bi-person',
+      subtitle: 'Pendampingan intensif sesuai kebutuhan siswa',
+    },
+    {
+      icon: 'bi-mortarboard',
+      subtitle: 'Persiapan matang untuk masa depan cerah',
+    },
+    {
+      icon: 'bi-star',
+      subtitle: 'Aktif, fokus, dan penuh semangat',
+    },
+  ];
+  const getGalleryMeta = (item, index) => {
+    if (item.description || item.icon) {
+      const fallback = galleryMeta[index % galleryMeta.length];
+      return {
+        icon: item.icon || fallback.icon,
+        subtitle: item.description || fallback.subtitle,
+      };
+    }
+
+    const label = (item.label || '').toLowerCase();
+    if (label.includes('diskusi')) {
+      return { icon: 'bi-chat-square-dots', subtitle: 'Belajar bersama, bertukar ide, menguatkan pemahaman' };
+    }
+    if (label.includes('private') || label.includes('privat')) {
+      return { icon: 'bi-person', subtitle: 'Pendampingan intensif sesuai kebutuhan siswa' };
+    }
+    if (label.includes('workshop') || label.includes('ptn')) {
+      return { icon: 'bi-mortarboard', subtitle: 'Persiapan matang untuk masa depan cerah' };
+    }
+    if (label.includes('aktif')) {
+      return { icon: 'bi-star', subtitle: 'Aktif, fokus, dan penuh semangat' };
+    }
+    return galleryMeta[index % galleryMeta.length];
+  };
 
   return (
-    <section id="gallery">
+    <section id="gallery" className="gallery-showcase-section">
       <div className="container">
-        <div className="sec-head">
-          <span className="kicker">Dokumentasi</span>
-          <h2>Galeri Kegiatan</h2>
-          <p>
-            Suasana belajar, kegiatan, dan momen spesial di Brilliant Learning Center.
-          </p>
-        </div>
+        <div className="gallery-showcase">
+          <div className="gallery-copy">
+            <span className="kicker">Dokumentasi Kegiatan</span>
+            <h2>Suasana Belajar di Brilliant Learning Center</h2>
+            <p>
+              Kami menghadirkan lingkungan belajar yang aktif, nyaman, dan terarah
+              melalui kelas reguler, sesi privat, diskusi kelompok, dan workshop
+              persiapan PTN.
+            </p>
 
-        <div className="gallery-grid">
-          {items.map((it, i) => (
-            <div className="gallery-item" key={i}>
-              <img src={it.image} alt={it.label} />
-              <div className="label">{it.label}</div>
+            <div className="gallery-highlight-list">
+              {galleryHighlights.map((item) => (
+                <div className="gallery-highlight" key={item.text}>
+                  <span className="gallery-highlight-icon">
+                    <i className={'bi ' + item.icon}></i>
+                  </span>
+                  <i className="bi bi-check-lg"></i>
+                  <strong>{item.text}</strong>
+                </div>
+              ))}
             </div>
-          ))}
-          {!items.length && (
-            <div className="gallery-item">
-              <div className="placeholder">Belum ada galeri kegiatan.</div>
-            </div>
-          )}
+          </div>
+
+          <div className="gallery-board">
+            {visibleItems.map((it, i) => {
+              const meta = getGalleryMeta(it, i);
+              return (
+                <article className={'gallery-photo-card' + (i === 0 ? ' featured' : '')} key={it.image + i}>
+                  <img src={it.image} alt={it.label} loading={i < 2 ? 'eager' : 'lazy'} />
+                  <div className="gallery-photo-caption">
+                    <span className="gallery-photo-icon">
+                      <i className={'bi ' + meta.icon}></i>
+                    </span>
+                    <div>
+                      <h3>{it.label}</h3>
+                      <p>{meta.subtitle}</p>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+
+            {!visibleItems.length && (
+              <div className="gallery-empty">
+                <i className="bi bi-images"></i>
+                <p>Belum ada galeri kegiatan.</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </section>

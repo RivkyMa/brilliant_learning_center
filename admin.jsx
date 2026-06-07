@@ -36,6 +36,8 @@ const EMPTY_ARTICLE = {
 const EMPTY_GALLERY_ITEM = {
   id: '',
   label: '',
+  description: '',
+  icon: 'bi-people',
   image_url: '',
   is_active: true,
   sort_order: 0,
@@ -178,6 +180,7 @@ function AdminShell({ client, session }) {
   const [testimonials, setTestimonials] = useStateA([]);
   const [loading, setLoading] = useStateA(false);
   const [notice, setNotice] = useStateA(null);
+  const [sweetAlert, setSweetAlert] = useStateA(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -208,8 +211,40 @@ function AdminShell({ client, session }) {
 
   const showNotice = (type, text, showDialog = false) => {
     setNotice({ type, text });
-    if (showDialog) window.alert(text);
+    if (showDialog || type === 'error') {
+      setSweetAlert({
+        type,
+        mode: 'alert',
+        title: type === 'success' ? 'Berhasil' : 'Terjadi kendala',
+        text,
+        confirmText: 'OK',
+      });
+    }
     window.setTimeout(() => setNotice(null), 4200);
+  };
+
+  const showConfirm = ({ title, text, confirmText = 'Ya, lanjutkan', cancelText = 'Batal', type = 'warning' }) => (
+    new Promise((resolve) => {
+      setSweetAlert({
+        type,
+        mode: 'confirm',
+        title,
+        text,
+        confirmText,
+        cancelText,
+        resolve,
+      });
+    })
+  );
+
+  const closeSweetAlert = () => {
+    if (sweetAlert && sweetAlert.resolve) sweetAlert.resolve(false);
+    setSweetAlert(null);
+  };
+
+  const confirmSweetAlert = () => {
+    if (sweetAlert && sweetAlert.resolve) sweetAlert.resolve(true);
+    setSweetAlert(null);
   };
 
   const signOut = () => client.auth.signOut();
@@ -273,6 +308,7 @@ function AdminShell({ client, session }) {
             teachers={teachers}
             onChanged={loadData}
             showNotice={showNotice}
+            showConfirm={showConfirm}
           />
         )}
 
@@ -282,6 +318,7 @@ function AdminShell({ client, session }) {
             articles={articles}
             onChanged={loadData}
             showNotice={showNotice}
+            showConfirm={showConfirm}
           />
         )}
 
@@ -291,6 +328,7 @@ function AdminShell({ client, session }) {
             galleryItems={galleryItems}
             onChanged={loadData}
             showNotice={showNotice}
+            showConfirm={showConfirm}
           />
         )}
 
@@ -300,6 +338,7 @@ function AdminShell({ client, session }) {
             testimonials={testimonials}
             onChanged={loadData}
             showNotice={showNotice}
+            showConfirm={showConfirm}
           />
         )}
 
@@ -312,9 +351,19 @@ function AdminShell({ client, session }) {
             articlesCount={articles.length}
             galleryCount={galleryItems.length}
             testimonialsCount={testimonials.length}
+            showConfirm={showConfirm}
           />
         )}
       </main>
+
+      {sweetAlert && (
+        <AdminSweetAlert
+          alert={sweetAlert}
+          onClose={closeSweetAlert}
+          onConfirm={confirmSweetAlert}
+          onCancel={closeSweetAlert}
+        />
+      )}
     </div>
   );
 }
@@ -330,7 +379,50 @@ function getAdminTitle(active) {
   return titles[active] || 'Admin BLC';
 }
 
-function TeacherManager({ client, teachers, onChanged, showNotice }) {
+function AdminSweetAlert({ alert, onClose, onConfirm, onCancel }) {
+  const iconMap = {
+    success: 'bi-check-lg',
+    error: 'bi-x-lg',
+    warning: 'bi-exclamation-lg',
+    info: 'bi-info-lg',
+  };
+  const icon = iconMap[alert.type] || iconMap.info;
+  const isConfirm = alert.mode === 'confirm';
+
+  return (
+    <div className="admin-swal-backdrop" role="presentation" onMouseDown={onCancel}>
+      <div
+        className={'admin-swal ' + alert.type}
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="admin-swal-title"
+        aria-describedby="admin-swal-text"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <button className="admin-swal-close" type="button" onClick={onClose} aria-label="Tutup alert">
+          <i className="bi bi-x-lg"></i>
+        </button>
+        <div className="admin-swal-icon">
+          <i className={'bi ' + icon}></i>
+        </div>
+        <h2 id="admin-swal-title">{alert.title}</h2>
+        <p id="admin-swal-text">{alert.text}</p>
+        <div className="admin-swal-actions">
+          {isConfirm && (
+            <button className="admin-swal-btn ghost" type="button" onClick={onCancel}>
+              {alert.cancelText || 'Batal'}
+            </button>
+          )}
+          <button className="admin-swal-btn primary" type="button" onClick={isConfirm ? onConfirm : onClose}>
+            {alert.confirmText || 'OK'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TeacherManager({ client, teachers, onChanged, showNotice, showConfirm }) {
   const [form, setForm] = useStateA(EMPTY_TEACHER);
   const [saving, setSaving] = useStateA(false);
   const [uploading, setUploading] = useStateA(false);
@@ -385,7 +477,13 @@ function TeacherManager({ client, teachers, onChanged, showNotice }) {
   };
 
   const remove = async (teacher) => {
-    if (!window.confirm('Hapus permanen data guru "' + teacher.name + '"?')) return;
+    const confirmed = await showConfirm({
+      title: 'Hapus data guru?',
+      text: 'Data "' + teacher.name + '" akan dihapus permanen dari Supabase.',
+      confirmText: 'Ya, hapus',
+      type: 'warning',
+    });
+    if (!confirmed) return;
     const { error } = await client.from('teachers').delete().eq('id', teacher.id);
     if (error) showNotice('error', error.message);
     else {
@@ -442,6 +540,7 @@ function TeacherManager({ client, teachers, onChanged, showNotice }) {
           imageUrl={form.image_url}
           uploading={uploading}
           onUpload={uploadTeacherImage}
+          onError={(message) => showNotice('error', message, true)}
           onClear={() => setForm({ ...form, image_url: '' })}
         />
         <TextField label="Inisial fallback" value={form.initials} onChange={(value) => setForm({ ...form, initials: value })} />
@@ -502,7 +601,7 @@ function TeacherManager({ client, teachers, onChanged, showNotice }) {
   );
 }
 
-function ArticleManager({ client, articles, onChanged, showNotice }) {
+function ArticleManager({ client, articles, onChanged, showNotice, showConfirm }) {
   const [form, setForm] = useStateA(EMPTY_ARTICLE);
   const [saving, setSaving] = useStateA(false);
   const [uploading, setUploading] = useStateA(false);
@@ -557,7 +656,13 @@ function ArticleManager({ client, articles, onChanged, showNotice }) {
   };
 
   const remove = async (article) => {
-    if (!window.confirm('Hapus permanen artikel "' + article.title + '"?')) return;
+    const confirmed = await showConfirm({
+      title: 'Hapus artikel?',
+      text: 'Artikel "' + article.title + '" akan dihapus permanen dari Supabase.',
+      confirmText: 'Ya, hapus',
+      type: 'warning',
+    });
+    if (!confirmed) return;
     const { error } = await client.from('articles').delete().eq('id', article.id);
     if (error) showNotice('error', error.message);
     else {
@@ -595,6 +700,7 @@ function ArticleManager({ client, articles, onChanged, showNotice }) {
           imageUrl={form.image_url}
           uploading={uploading}
           onUpload={uploadArticleImage}
+          onError={(message) => showNotice('error', message, true)}
           onClear={() => setForm({ ...form, image_url: '' })}
         />
         <TextField label="Tanggal publish" type="date" value={form.published_at} onChange={(value) => setForm({ ...form, published_at: value })} />
@@ -662,7 +768,7 @@ function ArticleManager({ client, articles, onChanged, showNotice }) {
   );
 }
 
-function GalleryManager({ client, galleryItems, onChanged, showNotice }) {
+function GalleryManager({ client, galleryItems, onChanged, showNotice, showConfirm }) {
   const [form, setForm] = useStateA(EMPTY_GALLERY_ITEM);
   const [saving, setSaving] = useStateA(false);
   const [uploading, setUploading] = useStateA(false);
@@ -671,6 +777,8 @@ function GalleryManager({ client, galleryItems, onChanged, showNotice }) {
     setForm({
       id: item.id,
       label: item.label || '',
+      description: item.description || '',
+      icon: item.icon || 'bi-people',
       image_url: item.image_url || '',
       is_active: Boolean(item.is_active),
       sort_order: item.sort_order || 0,
@@ -690,6 +798,8 @@ function GalleryManager({ client, galleryItems, onChanged, showNotice }) {
 
     const payload = {
       label: form.label.trim(),
+      description: emptyToNull(form.description),
+      icon: form.icon || 'bi-people',
       image_url: form.image_url,
       is_active: form.is_active,
       sort_order: Number(form.sort_order) || 0,
@@ -710,7 +820,13 @@ function GalleryManager({ client, galleryItems, onChanged, showNotice }) {
   };
 
   const remove = async (item) => {
-    if (!window.confirm('Hapus permanen galeri "' + item.label + '"?')) return;
+    const confirmed = await showConfirm({
+      title: 'Hapus galeri?',
+      text: 'Galeri "' + item.label + '" akan dihapus permanen dari Supabase.',
+      confirmText: 'Ya, hapus',
+      type: 'warning',
+    });
+    if (!confirmed) return;
     const { error } = await client.from('gallery_items').delete().eq('id', item.id);
     if (error) showNotice('error', error.message);
     else {
@@ -739,13 +855,34 @@ function GalleryManager({ client, galleryItems, onChanged, showNotice }) {
           <h2>{form.id ? 'Edit Galeri' : 'Tambah Galeri'}</h2>
           {form.id && <button type="button" className="admin-text-btn" onClick={reset}>Batal edit</button>}
         </div>
+        <p className="admin-help-text">Homepage menampilkan 5 galeri aktif teratas sesuai urutan tampil.</p>
 
         <TextField label="Judul/label foto" value={form.label} onChange={(value) => setForm({ ...form, label: value })} required />
+        <TextArea
+          label="Caption kecil"
+          value={form.description}
+          onChange={(value) => setForm({ ...form, description: value })}
+          rows={2}
+          placeholder="Contoh: Suasana belajar terarah dan interaktif"
+        />
+        <SelectField
+          label="Ikon overlay"
+          value={form.icon}
+          onChange={(value) => setForm({ ...form, icon: value })}
+          options={[
+            ['bi-people', 'Kelas / grup'],
+            ['bi-chat-square-dots', 'Diskusi'],
+            ['bi-person', 'Privat'],
+            ['bi-mortarboard', 'Workshop / PTN'],
+            ['bi-star', 'Aktif / unggulan'],
+          ]}
+        />
         <ImageUploadField
           label="Foto galeri"
           imageUrl={form.image_url}
           uploading={uploading}
           onUpload={uploadGalleryImage}
+          onError={(message) => showNotice('error', message, true)}
           onClear={() => setForm({ ...form, image_url: '' })}
         />
         <TextField label="Urutan tampil" type="number" value={form.sort_order} onChange={(value) => setForm({ ...form, sort_order: value })} />
@@ -779,6 +916,7 @@ function GalleryManager({ client, galleryItems, onChanged, showNotice }) {
               </div>
               <div className="admin-list-copy">
                 <strong>{item.label}</strong>
+                {item.description && <span>{item.description}</span>}
                 <span>Galeri Kegiatan · Urutan {item.sort_order || 0}</span>
               </div>
               <div className="admin-status">
@@ -801,7 +939,7 @@ function GalleryManager({ client, galleryItems, onChanged, showNotice }) {
   );
 }
 
-function TestimonialManager({ client, testimonials, onChanged, showNotice }) {
+function TestimonialManager({ client, testimonials, onChanged, showNotice, showConfirm }) {
   const [form, setForm] = useStateA(EMPTY_TESTIMONIAL);
   const [saving, setSaving] = useStateA(false);
   const [uploading, setUploading] = useStateA(false);
@@ -849,7 +987,13 @@ function TestimonialManager({ client, testimonials, onChanged, showNotice }) {
   };
 
   const remove = async (testimonial) => {
-    if (!window.confirm('Hapus permanen testimoni ini?')) return;
+    const confirmed = await showConfirm({
+      title: 'Hapus testimoni?',
+      text: 'Testimoni ini akan dihapus permanen dari Supabase.',
+      confirmText: 'Ya, hapus',
+      type: 'warning',
+    });
+    if (!confirmed) return;
     const { error } = await client.from('testimonials').delete().eq('id', testimonial.id);
     if (error) showNotice('error', error.message);
     else {
@@ -885,6 +1029,7 @@ function TestimonialManager({ client, testimonials, onChanged, showNotice }) {
           imageUrl={form.image_url}
           uploading={uploading}
           onUpload={uploadTestimonialImage}
+          onError={(message) => showNotice('error', message, true)}
           onClear={() => setForm({ ...form, image_url: '' })}
         />
         <TextField label="Urutan tampil" type="number" value={form.sort_order} onChange={(value) => setForm({ ...form, sort_order: value })} />
@@ -940,11 +1085,17 @@ function TestimonialManager({ client, testimonials, onChanged, showNotice }) {
   );
 }
 
-function ImportPanel({ client, onChanged, showNotice, teachersCount, articlesCount, galleryCount, testimonialsCount }) {
+function ImportPanel({ client, onChanged, showNotice, showConfirm, teachersCount, articlesCount, galleryCount, testimonialsCount }) {
   const [importing, setImporting] = useStateA(false);
 
   const importLocalData = async () => {
-    if (!window.confirm('Import data lokal dari data.jsx ke Supabase? Jalankan sekali saja agar tidak duplikat.')) return;
+    const confirmed = await showConfirm({
+      title: 'Import data lokal?',
+      text: 'Data dari data.jsx akan dimasukkan ke Supabase. Jalankan sekali saja agar tidak duplikat.',
+      confirmText: 'Ya, import',
+      type: 'warning',
+    });
+    if (!confirmed) return;
     setImporting(true);
 
     const teacherRows = buildLocalTeacherRows();
@@ -1021,7 +1172,20 @@ function TextArea({ label, value, onChange, required = false, rows = 5, placehol
   );
 }
 
-function ImageUploadField({ label, imageUrl, uploading, onUpload, onClear }) {
+function SelectField({ label, value, onChange, options, required = false }) {
+  return (
+    <label className="admin-field">
+      <span>{label}</span>
+      <select value={value} onChange={(event) => onChange(event.target.value)} required={required}>
+        {options.map(([optionValue, optionLabel]) => (
+          <option value={optionValue} key={optionValue}>{optionLabel}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function ImageUploadField({ label, imageUrl, uploading, onUpload, onClear, onError }) {
   const [localPreview, setLocalPreview] = useStateA('');
 
   useEffectA(() => {
@@ -1035,7 +1199,7 @@ function ImageUploadField({ label, imageUrl, uploading, onUpload, onClear }) {
 
     const validationError = validateImageFile(file);
     if (validationError) {
-      window.alert(validationError);
+      if (onError) onError(validationError);
       return;
     }
 
@@ -1283,6 +1447,8 @@ function buildLocalArticleRows() {
 function buildLocalGalleryRows() {
   return (BLC_DATA.GALLERY_ITEMS || []).map((item, index) => ({
     label: item.label || 'Galeri Kegiatan',
+    description: item.description || null,
+    icon: item.icon || 'bi-people',
     image_url: item.image || '',
     is_active: true,
     sort_order: index,

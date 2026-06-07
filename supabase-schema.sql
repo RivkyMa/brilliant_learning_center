@@ -60,12 +60,20 @@ create table if not exists public.articles (
 create table if not exists public.gallery_items (
   id uuid primary key default gen_random_uuid(),
   label text not null,
+  description text,
+  icon text not null default 'bi-people',
   image_url text not null,
   is_active boolean not null default true,
   sort_order integer not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.gallery_items
+  add column if not exists description text;
+
+alter table public.gallery_items
+  add column if not exists icon text not null default 'bi-people';
 
 create table if not exists public.testimonials (
   id uuid primary key default gen_random_uuid(),
